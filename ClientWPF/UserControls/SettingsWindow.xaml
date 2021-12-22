@@ -19,10 +19,10 @@
         </Grid.RowDefinitions>
 
         <TextBlock VerticalAlignment="Center" Margin="5">Api key</TextBlock>
-        <TextBox Grid.Column="1" Margin="5" Text="{Binding ApiKey}"></TextBox>
+        <TextBox x:Name="txtKey" Grid.Column="1" Margin="5" Text="{ Binding ApiKey}" ></TextBox>
 
         <TextBlock VerticalAlignment="Center" Margin="5" Grid.Row="1">Api secret</TextBlock>
-        <TextBox Grid.Column="1" Grid.Row="1" Margin="5" Text="{Binding ApiSecret}"></TextBox>
+        <TextBox x:Name="txtSecret" Grid.Column="1" Grid.Row="1" Margin="5" Text="{Binding ApiSecret}"></TextBox>
 
         <Button Grid.Column="1" Grid.Row="2" HorizontalAlignment="Right" Margin="5" Padding="20 0" Command="{Binding CloseSettingsCommand}">Ok</Button>
     </Grid>
