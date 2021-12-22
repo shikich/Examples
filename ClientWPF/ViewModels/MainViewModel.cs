@@ -14,11 +14,14 @@ using Binance.Net.Objects.Spot;
 using Binance.Net.Objects.Spot.UserStream;
 using CryptoExchange.Net.Authentication;
 using CryptoExchange.Net.Sockets;
+using Binance.Net.ClientWPF.BotAlgos;
+using System.Threading;
 
 namespace Binance.Net.ClientWPF
 {
     public class MainViewModel : ObservableObject
     {
+
         private ObservableCollection<BinanceSymbolViewModel> allPrices;
         public ObservableCollection<BinanceSymbolViewModel> AllPrices
         {
@@ -102,11 +105,15 @@ namespace Binance.Net.ClientWPF
 
         public ICommand SettingsCommand { get; set; }
         public ICommand CloseSettingsCommand { get; set; }
+        public ICommand BotTradeCommand{ get; set; }
+
 
         private IMessageBoxService messageBoxService;
         private SettingsWindow settings;
         private object orderLock;
         private BinanceSocketClient socketClient;
+
+        CancellationTokenSource cts = new CancellationTokenSource();
 
         public MainViewModel()
         {
@@ -117,6 +124,11 @@ namespace Binance.Net.ClientWPF
             BuyCommand = new DelegateCommand(async (o) => await Buy(o));
             SellCommand = new DelegateCommand(async (o) => await Sell(o));
             CancelCommand = new DelegateCommand(async (o) => await Cancel(o));
+
+            BuySell bs = new BuySell();
+            CancellationToken token = cts.Token;
+            BotTradeCommand = new DelegateCommand(async (o) => await bs.Trade(token, o));
+
             SettingsCommand = new DelegateCommand(Settings);
             CloseSettingsCommand = new DelegateCommand(CloseSettings);
 
@@ -130,7 +142,10 @@ namespace Binance.Net.ClientWPF
             {
                 var result = await client.Spot.Order.CancelOrderAsync(SelectedSymbol.Symbol, order.Id);
                 if (result.Success)
+                {
+                    ChangeSymbol();
                     messageBoxService.ShowMessage("Order canceled!", "Sucess", MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                }
                 else
                     messageBoxService.ShowMessage($"Order canceling failed: {result.Error.Message}", "Failed", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
             }
@@ -142,7 +157,10 @@ namespace Binance.Net.ClientWPF
             {
                 var result = await client.Spot.Order.PlaceOrderAsync(SelectedSymbol.Symbol, OrderSide.Buy, OrderType.Limit, SelectedSymbol.TradeAmount, price: SelectedSymbol.TradePrice, timeInForce: TimeInForce.GoodTillCancel);
                 if (result.Success)
+                {
+                    ChangeSymbol();
                     messageBoxService.ShowMessage("Order placed!", "Sucess", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                }
                 else
                     messageBoxService.ShowMessage($"Order placing failed: {result.Error.Message}", "Failed", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
             }
@@ -154,7 +172,10 @@ namespace Binance.Net.ClientWPF
             {
                 var result = await client.Spot.Order.PlaceOrderAsync(SelectedSymbol.Symbol, OrderSide.Sell, OrderType.Limit, SelectedSymbol.TradeAmount, price: SelectedSymbol.TradePrice, timeInForce: TimeInForce.GoodTillCancel);
                 if (result.Success)
+                {
+                    ChangeSymbol();
                     messageBoxService.ShowMessage("Order placed!", "Sucess", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                }
                 else
                     messageBoxService.ShowMessage($"Order placing failed: {result.Error.Message}", "Failed", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
             }
@@ -280,7 +301,7 @@ namespace Binance.Net.ClientWPF
             });
         }
 
-        private void ChangeSymbol()
+        public void ChangeSymbol()
         {
             if (SelectedSymbol != null)
             {

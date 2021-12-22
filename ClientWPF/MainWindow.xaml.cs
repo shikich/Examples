@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Windows;
 using System.Windows.Data;
+using Binance.Net.ClientWPF.UserControls;
 
 namespace Binance.Net.ClientWPF
 {
