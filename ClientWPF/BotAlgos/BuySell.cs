@@ -9,6 +9,15 @@ using System.Threading;
 using Binance.Net.ClientWPF.MessageBox;
 using Binance.Net.Enums;
 using Binance.Net.ClientWPF.MVVM;
+using System.Collections.ObjectModel;
+using System.Windows.Input;
+using System.Windows;
+using Binance.Net.Objects;
+using Binance.Net.Objects.Spot;
+using Binance.Net.Objects.Spot.UserStream;
+using CryptoExchange.Net.Authentication;
+using CryptoExchange.Net.Sockets;
+using Binance.Net.ClientWPF.BotAlgos;
 
 namespace Binance.Net.ClientWPF.BotAlgos
 {
@@ -20,6 +29,12 @@ namespace Binance.Net.ClientWPF.BotAlgos
 
         public object o;
         public decimal botBuy;
+        public decimal botSell;
+
+
+        //need user balance info
+        public decimal busd;
+
         private BinanceSymbolViewModel selectedSymbolBot;
         public BinanceSymbolViewModel SelectedSymbolBot
         {
@@ -27,23 +42,14 @@ namespace Binance.Net.ClientWPF.BotAlgos
             set
             {
                 selectedSymbolBot = value;
+                botBuy = selectedSymbolBot.Price;
+                mb.ShowMessage($" {botBuy}", "", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+
                 RaisePropertyChangedEvent("SymbolIsSelected");
                 RaisePropertyChangedEvent("SelectedSymbol");
                 m.ChangeSymbol();
             }
         }
-
-        //public decimal BotBuy
-        //{
-        //    get { return botBuy; }
-        //    set
-        //    {
-        //        botBuy = value;
-        //        RaisePropertyChangedEvent("SymbolIsSelected");
-        //        RaisePropertyChangedEvent("SelectedSymbol");
-        //        m.ChangeSymbol();
-        //    }
-        //}
 
         public decimal botBuyAmount;
         public decimal userAmount = 0.0074m;
@@ -52,43 +58,43 @@ namespace Binance.Net.ClientWPF.BotAlgos
             get { return userAmount; }
             set
             {
-                userAmount = value;
+                userAmount = 0.0074m;
                 RaisePropertyChangedEvent("UserAmount");
             }
         }
 
-        public async Task Trade(CancellationToken token, object o)
+        public async Task Trade(CancellationToken token, BinanceSymbolViewModel bot)
         {
-            SymbolUserControl u = new SymbolUserControl();
-            //if (u.cbBot.IsChecked == true)
-            //{
-            //    while (u.btnActivate.IsEnabled == true)
-            //    {
 
-                    //u.txtPriceBuy.Text = m.SelectedSymbol.Price;
-
-                    //u.txtPriceBuy.Text = u.tbPrice.Text;//
-                    u.txtAmountBuy.Text = userAmount.ToString();//
-
-                    //m.SelectedSymbol.TradePrice = botBuy;//
-                    //m.SelectedSymbol.TradeAmount = userAmount;//
-
-                    await BuyAsync();
-            //    }
-            //}
-            //return;
+            SelectedSymbolBot = bot;
+            await BuyAsync();
         }
 
         public async Task ConditionTrade()
         {
-            if (botBuy + (botBuy * 0.05m) <= selectedSymbolBot.TradePrice)
+            await Wait();
+        }
+        public async Task Wait()
+        {
             {
-                await SellAsync();//
-            }
+                //+ we earn
+                if (botBuy + (botBuy * 0.005m) <= SelectedSymbolBot.Price)
+                {
+                    await SellAsync();//
+                }
 
-            if (botBuy - (botBuy * 0.01m) > selectedSymbolBot.TradePrice)
-            {
-                await SellAsync();//
+                //- we lost
+
+                if (botBuy - (botBuy * 0.001m) > SelectedSymbolBot.Price)
+                {
+                    await SellAsync();//
+                }
+
+                //cancellation realize if order inactual
+                //if (botBuy)
+                {
+
+                }
             }
         }
 
@@ -97,10 +103,11 @@ namespace Binance.Net.ClientWPF.BotAlgos
             using (var client = new BinanceClient())
             {
                 SymbolUserControl u = new SymbolUserControl();
-                var result = await client.Spot.Order.PlaceOrderAsync(SelectedSymbolBot.Symbol, OrderSide.Buy, OrderType.Limit, SelectedSymbolBot.TradeAmount, price: SelectedSymbolBot.TradePrice, timeInForce: TimeInForce.GoodTillCancel);
+                var result = await client.Spot.Order.PlaceOrderAsync(SelectedSymbolBot.Symbol, OrderSide.Buy, OrderType.Limit, m.UserAmount, price: SelectedSymbolBot.TradePrice, timeInForce: TimeInForce.GoodTillCancel);
                 if (result.Success)
                 {
                     //
+                    m.ChangeSymbol();
                     await ConditionTrade();
 
                     //MessageBoxService.ShowMessage("Order placed!", "Sucess", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
@@ -109,14 +116,14 @@ namespace Binance.Net.ClientWPF.BotAlgos
                     mb.ShowMessage($"Order placing failed: {result.Error.Message}", "Failed", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
             }
 
-            await m.Buy(o);
+            //await m.Buy(o);
         }
 
         public async Task SellAsync()
         {
             using (var client = new BinanceClient())
             {
-                var result = await client.Spot.Order.PlaceOrderAsync(SelectedSymbolBot.Symbol, OrderSide.Sell, OrderType.Limit, SelectedSymbolBot.TradeAmount, price: SelectedSymbolBot.TradePrice, timeInForce: TimeInForce.GoodTillCancel);
+                var result = await client.Spot.Order.PlaceOrderAsync(SelectedSymbolBot.Symbol, OrderSide.Sell, OrderType.Limit, m.UserAmount, price: SelectedSymbolBot.Price, timeInForce: TimeInForce.GoodTillCancel);
                 if (result.Success)
                 {
 
@@ -126,10 +133,9 @@ namespace Binance.Net.ClientWPF.BotAlgos
                 else
                     mb.ShowMessage($"Order placing failed: {result.Error.Message}", "Failed", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
             }
-
             //await m.Sell(o);
         }
-        public async Task CancelAsync()
+        public async Task CancelAsync(object o)
         {
             var order = (OrderViewModel)o;
             using (var client = new BinanceClient())
@@ -139,6 +145,7 @@ namespace Binance.Net.ClientWPF.BotAlgos
                     var result = await client.Spot.Order.CancelOrderAsync(SelectedSymbolBot.Symbol, order.Id);
                     if (result.Success)
                     {
+                        m.ChangeSymbol();
 
                         //
                         //messageBoxService.ShowMessage("Order canceled!", "Sucess", MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
@@ -156,7 +163,6 @@ namespace Binance.Net.ClientWPF.BotAlgos
         }
 
         //necessary
-
         public async Task Update()
         {
 

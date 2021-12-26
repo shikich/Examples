@@ -2,7 +2,7 @@
 
 namespace Binance.Net.ClientWPF.MVVM
 {
-    public class ObservableObject: INotifyPropertyChanged
+    public class ObservableObject : INotifyPropertyChanged
     {
         public event PropertyChangedEventHandler PropertyChanged;
 

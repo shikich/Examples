@@ -18,7 +18,8 @@ namespace Binance.Net.ClientWPF.UserControls
 
         CancellationTokenSource cts = new CancellationTokenSource();
 
-        private async void cbBot_Click(object sender, System.Windows.RoutedEventArgs e)
+        //undone
+        private void cbBot_Click(object sender, System.Windows.RoutedEventArgs e)
         {
             BuySell bs = new BuySell();
             if (cbBot.IsChecked == true)
@@ -28,23 +29,20 @@ namespace Binance.Net.ClientWPF.UserControls
             else
             {
                 btnActivate.IsEnabled = false;
-                await bs.CancelAsync();
-                CancellationToken token = cts.Token;
-                //await bs.Trade(token);
-                cts.Cancel();
+
+                //CancellationToken token = cts.Token; 
+                //await bs.CancelAsync(token, );
+                //cts.Cancel();
             }
         }
-        private async void btnActivate_Click(object sender, System.Windows.RoutedEventArgs e)
+        private void btnActivate_Click(object sender, System.Windows.RoutedEventArgs e)
         {
             BuySell bs = new BuySell();
             if (btnActivate.Content.ToString() == "Start")
             {
                 btnActivate.Content = "Stop";
-                CancellationToken token = cts.Token;
-                //Task.Run(async () =>
-                //{
-                    await bs.Trade(token);
-                //});
+                //CancellationToken token = cts.Token;
+                //await bs.Trade(token,);
             }
             else
             {

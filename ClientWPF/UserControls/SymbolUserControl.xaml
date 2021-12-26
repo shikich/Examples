@@ -41,7 +41,7 @@
                         <ColumnDefinition></ColumnDefinition>
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="Price"></TextBlock>
-                    <xctk:DecimalUpDown x:Name="txtPriceBuy" Value="{Binding SelectedSymbol.TradePrice}" Margin="5" Grid.Column="1"></xctk:DecimalUpDown>
+                    <xctk:DecimalUpDown x:Name="txtPriceBuy" Value="{Binding SelectedSymbolBot.TradePrice}" Margin="5" Grid.Column="1"></xctk:DecimalUpDown>
                 </Grid>
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -54,7 +54,7 @@
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Margin="0,5,20,0" Text="On/off"/>
                     <CheckBox Margin="0,5,23,0" x:Name="cbBot" Click="cbBot_Click" />
-                    <Button IsEnabled="False" x:Name="btnActivate" Width="60" Margin="0,5,10,0" Click="btnActivate_Click" >Start</Button>
+                    <Button IsEnabled="False" Command="{Binding BotTradeCommand}" x:Name="btnActivate" Width="60" Margin="0,5,10,0" Click="btnActivate_Click" >Start</Button>
                 </StackPanel>
             </StackPanel>
         </GroupBox>
