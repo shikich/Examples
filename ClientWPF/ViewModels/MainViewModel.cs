@@ -14,6 +14,8 @@ using Binance.Net.Objects.Spot;
 using Binance.Net.Objects.Spot.UserStream;
 using CryptoExchange.Net.Authentication;
 using CryptoExchange.Net.Sockets;
+using Binance.Net.ClientWPF.BotAlgos;
+using System.Threading;
 
 namespace Binance.Net.ClientWPF
 {
@@ -37,11 +39,18 @@ namespace Binance.Net.ClientWPF
             set
             {
                 selectedSymbol = value;
+                botSymbol = selectedSymbol.Symbol;
+                botPrice = selectedSymbol.Price;
+                //SelectedSymbolBot = selectedSymbol;
+
                 RaisePropertyChangedEvent("SymbolIsSelected");
                 RaisePropertyChangedEvent("SelectedSymbol");
                 ChangeSymbol();
             }
         }
+        public string botSymbol;
+        public decimal botPrice;
+
         public bool SymbolIsSelected
         {
             get { return SelectedSymbol != null; }
@@ -68,8 +77,8 @@ namespace Binance.Net.ClientWPF
                 RaisePropertyChangedEvent("SettingsOpen");
             }
         }
-
-        private string apiKey;
+        //api keys
+        private string apiKey = "***";
         public string ApiKey
         {
             get { return apiKey; }
@@ -82,19 +91,49 @@ namespace Binance.Net.ClientWPF
             }
         }
 
-        private string apiSecret;
+        private string apiSecret = "***";
         public string ApiSecret
         {
             get { return apiSecret; }
             set
             {
-                apiSecret = value;
+                apiSecret = value;   
                 RaisePropertyChangedEvent("ApiSecret");
-
                 //if (value != null && apiKey != null)
                 //    BinanceDefaults.SetDefaultApiCredentials(apiKey, value);
             }
         }
+
+        //bot
+        //private BinanceSymbolViewModel selectedSymbolBot;
+        //public BinanceSymbolViewModel SelectedSymbolBot
+        //{
+        //    get { return selectedSymbolBot; }
+        //    set
+        //    {
+        //        selectedSymbolBot = value;
+        //        RaisePropertyChangedEvent("SymbolIsSelected");
+        //        RaisePropertyChangedEvent("SelectedSymbol");
+        //        ChangeSymbol();
+        //    }
+        //}
+
+        public decimal userAmount = 0.0074m;
+        public decimal UserAmount
+        {
+            get { return userAmount; }
+            set
+            {
+
+                userAmount = 0.0074m;
+
+                BuySell bs = new BuySell();
+
+                bs.UserAmount = userAmount;
+                RaisePropertyChangedEvent("UserAmount");
+            }
+        }
+
 
         public ICommand BuyCommand { get; set; }
         public ICommand SellCommand { get; set; }
@@ -102,11 +141,15 @@ namespace Binance.Net.ClientWPF
 
         public ICommand SettingsCommand { get; set; }
         public ICommand CloseSettingsCommand { get; set; }
+        public ICommand BotTradeCommand{ get; set; }
+
 
         private IMessageBoxService messageBoxService;
         private SettingsWindow settings;
         private object orderLock;
         private BinanceSocketClient socketClient;
+
+        CancellationTokenSource cts = new CancellationTokenSource();
 
         public MainViewModel()
         {
@@ -117,10 +160,22 @@ namespace Binance.Net.ClientWPF
             BuyCommand = new DelegateCommand(async (o) => await Buy(o));
             SellCommand = new DelegateCommand(async (o) => await Sell(o));
             CancelCommand = new DelegateCommand(async (o) => await Cancel(o));
+
+            //bot
+            CancellationToken token = cts.Token;
+            BotTradeCommand = new DelegateCommand(async (o) => await BotTrade(token, SelectedSymbol));
+            //
+
             SettingsCommand = new DelegateCommand(Settings);
             CloseSettingsCommand = new DelegateCommand(CloseSettings);
 
             Task.Run(() => GetAllSymbols());
+        }
+
+        public async Task BotTrade(CancellationToken token, BinanceSymbolViewModel bot)
+        {
+            var bs = new BuySell();
+            await bs.Trade(token, bot);
         }
 
         public async Task Cancel(object o)
@@ -130,7 +185,10 @@ namespace Binance.Net.ClientWPF
             {
                 var result = await client.Spot.Order.CancelOrderAsync(SelectedSymbol.Symbol, order.Id);
                 if (result.Success)
+                {
+                    ChangeSymbol();
                     messageBoxService.ShowMessage("Order canceled!", "Sucess", MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                }
                 else
                     messageBoxService.ShowMessage($"Order canceling failed: {result.Error.Message}", "Failed", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
             }
@@ -142,7 +200,10 @@ namespace Binance.Net.ClientWPF
             {
                 var result = await client.Spot.Order.PlaceOrderAsync(SelectedSymbol.Symbol, OrderSide.Buy, OrderType.Limit, SelectedSymbol.TradeAmount, price: SelectedSymbol.TradePrice, timeInForce: TimeInForce.GoodTillCancel);
                 if (result.Success)
+                {
+                    ChangeSymbol();
                     messageBoxService.ShowMessage("Order placed!", "Sucess", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                }
                 else
                     messageBoxService.ShowMessage($"Order placing failed: {result.Error.Message}", "Failed", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
             }
@@ -154,7 +215,10 @@ namespace Binance.Net.ClientWPF
             {
                 var result = await client.Spot.Order.PlaceOrderAsync(SelectedSymbol.Symbol, OrderSide.Sell, OrderType.Limit, SelectedSymbol.TradeAmount, price: SelectedSymbol.TradePrice, timeInForce: TimeInForce.GoodTillCancel);
                 if (result.Success)
+                {
+                    ChangeSymbol();
                     messageBoxService.ShowMessage("Order placed!", "Sucess", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                }
                 else
                     messageBoxService.ShowMessage($"Order placing failed: {result.Error.Message}", "Failed", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
             }
@@ -167,6 +231,8 @@ namespace Binance.Net.ClientWPF
             settings.ShowDialog();
         }
 
+        public static bool status = false;
+
         private void CloseSettings(object o)
         {
             settings?.Close();
@@ -174,7 +240,7 @@ namespace Binance.Net.ClientWPF
 
             if (!string.IsNullOrEmpty(apiKey) && !string.IsNullOrEmpty(apiSecret))
                 BinanceClient.SetDefaultOptions(new BinanceClientOptions() { ApiCredentials = new ApiCredentials(apiKey, apiSecret) });
-
+            status = true;
             SubscribeUserStream();
         }
 
@@ -191,7 +257,8 @@ namespace Binance.Net.ClientWPF
             }
 
             socketClient = new BinanceSocketClient();
-            var subscribeResult = await socketClient.Spot.SubscribeToAllSymbolTickerUpdatesAsync(data => {
+            var subscribeResult = await socketClient.Spot.SubscribeToAllSymbolTickerUpdatesAsync(data => 
+            {
                 foreach (var ud in data.Data) {
                     var symbol = AllPrices.SingleOrDefault(p => p.Symbol == ud.Symbol);
                     if (symbol != null)
@@ -275,12 +342,15 @@ namespace Binance.Net.ClientWPF
                     if (accountResult.Success)
                         Assets = new ObservableCollection<AssetViewModel>(accountResult.Data.Balances.Where(b => b.Free != 0 || b.Locked != 0).Select(b => new AssetViewModel() { Asset = b.Asset, Free = b.Free, Locked = b.Locked }).ToList());
                     else
+                    {
                         messageBoxService.ShowMessage($"Error requesting account info: {accountResult.Error.Message}", "error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        status = false;
+                    }
                 }
             });
         }
 
-        private void ChangeSymbol()
+        public void ChangeSymbol()
         {
             if (SelectedSymbol != null)
             {
